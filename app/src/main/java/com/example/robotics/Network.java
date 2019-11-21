@@ -2,94 +2,123 @@
 //Establish connection with robot
 package com.example.robotics;
 
-import java.net.*;
-import java.util.*;
-import java.io.*;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-class Network {
-    private static final int PORT = 80;
-    private Socket socket = null;
-    private DataInputStream input = null;
-    private DataOutputStream output = null;
-    private InetAddress address;
-    private PrintWriter command;
-    private DatagramSocket socket_datagram;
+public class Network {
+    private int port;
+    private InetSocketAddress socketAddress;
     private DatagramPacket packet;
+    private DatagramSocket ds;
+    private byte[] buffer;
 
-    // Default constructor
-    public Network() {
-        try {
-            address = InetAddress.getByName("190.168.4.1");
-            socket = new Socket(address, 80);
-            socket_datagram = new DatagramSocket(PORT);
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    // Getters & Setters
+    public DatagramSocket getDs() {
+        return ds;
     }
 
-    // Constructor to take ip and establish connection
-    public Network(String address, int port) {
-        // Establish connection
-        try {
-            this.address = InetAddress.getByName(address);
-            socket = new Socket(this.address, port);
-            socket_datagram = new DatagramSocket(PORT);
-            System.out.println("Connected");
+    public void setDs(DatagramSocket ds) {
+        this.ds = ds;
+    }
 
-            // Establish connection
-            establishConnection();
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    // Network Constructors
+    Network() {
+        setPort(80);
+        socketAddress = new InetSocketAddress("192.168.4.1", port);
+    }
+
+    Network(String ip, int port) {
+        socketAddress = new InetSocketAddress(ip, port);
+    }
+
+    // Initialize connection
+    public void initialize() {
+        try {
+            connect();
+            System.out.println("Connection ok \n");
         }
-        // Implement catch for UnknownHostException
-        catch (UnknownHostException u) {
-        }
-        // Implement catch for IOException
         catch (IOException i) {
+            System.out.println("Connection not made");
         }
-
     }
 
-    // Establish connection method
-    public void establishConnection() {
-
+    // Initialize connection (with specified ip and port)
+    public void initialize(String ip, int port) {
         try {
-            // May need to change this too
-            output = new DataOutputStream(socket.getOutputStream());
-
-            // May need this? May get rid of it if output is all that
-            // is needed
-            command = new PrintWriter(socket.getOutputStream(), true);
-
-
-        } catch (IOException e) {
-            e.printStackTrace();
+            connect(ip, port);
+            System.out.println("Connection ok \n");
         }
+        catch (IOException i) {
+            System.out.println("Connection not made");
+        }
+    }
+
+    // Connect
+    private void connect() throws SocketException {
+        ds = new DatagramSocket();
+        ds.connect(socketAddress);
+    }
+
+    private void connect(String ip, int port) throws SocketException {
+        socketAddress = new InetSocketAddress(ip, port);
+        ds = new DatagramSocket();
+        ds.connect(socketAddress);
     }
 
     // Close connection
-    public void closeConnection() {
-        try {
-            input.close();
-            output.close();
-            socket.close();
-            socket_datagram.close();
-        }
-        catch (IOException i) {
-            System.out.println(i);
+    public void close() {
+        if (ds.isConnected()) {
+            ds.close();
         }
     }
 
-    // Output bit
-    public void outputCommand(String userInput, String joystickButton, String joystickAxis) {
-        if (socket.isConnected())
-        {
+    // Send DatagramPacket
+    public void send(int number) {
+        buffer = convertIntToByteArray(number);
 
+        if (ds.isConnected()) {
+            packet = new DatagramPacket(buffer, buffer.length, socketAddress.getAddress(),
+                    socketAddress.getPort());
+
+            // Send packet
+            try {
+                ds.send(packet);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            System.out.println("Message sent \n");
+            System.out.println(buffer[0]);
         }
+    }
 
-        if (socket_datagram.isConnected())
-        {
-
+    // Disconnect socket
+    public void disconnect() {
+        if (ds.isConnected()) {
+            ds.close();
+            ds.disconnect();
         }
+    }
+
+    // Convert from int to ByteArray
+    private byte[] convertIntToByteArray(int number) {
+        return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(number).array();
+    }
+
+    private byte[] convertIntToByteArray(int number, int size) {
+        return ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN).putInt(number).array();
     }
 }
